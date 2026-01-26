@@ -1,0 +1,9 @@
+# Model assets
+checkpoints/auxiliary/i3d_torchscript.pt
+checkpoints/auxiliary/sfd_face.pth
+checkpoints/auxiliary/syncnet_v2.model
+shape_predictor_68_face_landmarks.dat
+
+# Optional outputs/logs
+all_metrics_*/
+*.log

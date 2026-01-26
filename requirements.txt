@@ -1,0 +1,25 @@
+# Core
+numpy
+scipy
+tqdm
+
+# Vision / video
+opencv-python
+mediapipe
+decord
+scikit-image
+imageio
+
+# ML
+torch
+torchvision
+pytorch-fid
+
+# Face / detection
+python_speech_features
+dlib
+scenedetect
+
+# Utils
+matplotlib
+einops
