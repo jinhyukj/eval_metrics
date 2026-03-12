@@ -35,7 +35,7 @@ Optional:
 Examples:
 
 OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 NUMEXPR_NUM_THREADS=4
-CUDA_VISIBLE_DEVICES=1 \
+CUDA_VISIBLE_DEVICES=7 \
 bash eval/run_metrics.sh \
   --real_videos_dir /home/work/.local/HDTF/HDTF_original_testset/videos_cfr \
   --fake_videos_dir /home/work/.local/MuseTalk/results/hdtf_original_testset/v15 \
@@ -82,7 +82,7 @@ FID_DIMS="2048"
 MIN_DETECTION_CONFIDENCE="0.5"
 FALLBACK_DETECTION_CONFIDENCE="0.2"
 FFMPEG_PATH="ffmpeg"
-ARCFACE_WEIGHT="checkpoints/auxiliary/ms1mv3_arcface_r100_fp16.pth"
+ARCFACE_WEIGHT="checkpoints/auxiliary/models/arcface/ms1mv3_arcface_r100_fp16.pth"
 ARCFACE_DIR="arcface_torch"
 ARCFACE_MODEL_NAME="r100"
 CSIM_BATCH_SIZE="512"
@@ -228,7 +228,7 @@ fi
 
 if [[ $RUN_FID -eq 1 ]]; then
   fid_log_path="$OUTPUT_DIR/fid_per_video.log"
-  cmd=(env OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+  cmd=(
     python "$SCRIPT_DIR/eval_fid_videos.py"
     --inputs_dir "$REAL_VIDEOS_DIR"
     --previews_dir "$FAKE_VIDEOS_DIR"
@@ -249,7 +249,7 @@ if [[ $RUN_FID -eq 1 ]]; then
 fi
 
 if [[ $RUN_CSIM -eq 1 ]]; then
-  cmd=(env OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+  cmd=(
     python "$SCRIPT_DIR/eval_csim.py"
     --real_videos_dir "$REAL_VIDEOS_DIR"
     --fake_videos_dir "$FAKE_VIDEOS_DIR"
