@@ -4,7 +4,7 @@ set -o pipefail
 
 usage() {
   cat <<'EOF'
-Usage: eval/run_metrics.sh [options] [--fvd] [--fid] [--csim] [--ssim-lmd] [--syncnet] [--all]
+Usage: eval/run_metrics.sh [options] [--fvd] [--fid] [--csim] [--ssim-lmd] [--syncnet] [--gt-aligned] [--all]
 
 Required options:
   --real_videos_dir PATH
@@ -35,14 +35,13 @@ Optional:
 Examples:
 
 OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 NUMEXPR_NUM_THREADS=4
-CUDA_VISIBLE_DEVICES=7 \
+CUDA_VISIBLE_DEVICES=3 \
 bash eval/run_metrics.sh \
-  --real_videos_dir /home/work/.local/HDTF/HDTF_original_testset/videos_cfr \
-  --fake_videos_dir /home/work/.local/MuseTalk/results/hdtf_original_testset/v15 \
+  --real_videos_dir /home/work/.local/TalkVid/TalkVid_Data/results/top30_english_distinct_id_25fps81f_a16k/processed \
+  --fake_videos_dir /home/work/.local/LatentSync/outputs_talkvid/final_videos \
   --shape_predictor_path /home/work/.local/LatentSync/shape_predictor_68_face_landmarks.dat \
-  --name_list_path /home/work/.local/HDTF/HDTF_original_testset/video_names.txt \
-  --output_dir all_metrics_musetalk_HDTF \
-  --log_path all_metrics_musetalk_HDTF/all_metrics.log \
+  --output_dir all_metrics_Talkvid_LatentSync \
+  --log_path all_metrics_Talkvid_LatentSync/all_metrics.log \
   --fallback_detection_confidence 0.2 \
   --all \
   --fake_videos_top_level
@@ -95,6 +94,7 @@ RUN_FID=0
 RUN_CSIM=0
 RUN_SSIM_LMD=0
 RUN_SYNCNET=0
+RUN_GT_ALIGNED=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -123,6 +123,7 @@ while [[ $# -gt 0 ]]; do
     --csim) RUN_CSIM=1; shift ;;
     --ssim-lmd|--ssim_lmd) RUN_SSIM_LMD=1; shift ;;
     --syncnet) RUN_SYNCNET=1; shift ;;
+    --gt-aligned|--gt_aligned) RUN_GT_ALIGNED=1; shift ;;
     --all) RUN_FVD=1; RUN_FID=1; RUN_CSIM=1; RUN_SSIM_LMD=1; RUN_SYNCNET=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
@@ -135,7 +136,7 @@ if [[ -z "$REAL_VIDEOS_DIR" || -z "$FAKE_VIDEOS_DIR" || -z "$OUTPUT_DIR" ]]; the
   exit 1
 fi
 
-if [[ $RUN_FVD -eq 0 && $RUN_FID -eq 0 && $RUN_CSIM -eq 0 && $RUN_SSIM_LMD -eq 0 && $RUN_SYNCNET -eq 0 ]]; then
+if [[ $RUN_FVD -eq 0 && $RUN_FID -eq 0 && $RUN_CSIM -eq 0 && $RUN_SSIM_LMD -eq 0 && $RUN_SYNCNET -eq 0 && $RUN_GT_ALIGNED -eq 0 ]]; then
   echo "No metrics selected. Use --fvd/--fid/--csim/--ssim-lmd/--syncnet or --all."
   usage
   exit 1
@@ -143,6 +144,12 @@ fi
 
 if [[ $RUN_SSIM_LMD -eq 1 && -z "$SHAPE_PREDICTOR_PATH" ]]; then
   echo "--shape_predictor_path is required when using --ssim-lmd."
+  exit 1
+fi
+
+if [[ -n "$NAME_LIST_PATH" && ! -f "$NAME_LIST_PATH" ]]; then
+  echo "name_list_path does not exist: $NAME_LIST_PATH"
+  echo "Either provide a valid file or omit --name_list_path to match videos from filenames."
   exit 1
 fi
 
@@ -291,6 +298,26 @@ if [[ $RUN_SYNCNET -eq 1 ]]; then
   fi
   if ! run_metric "SyncNet" "${cmd[@]}"; then
     failures+=("SyncNet")
+  fi
+fi
+
+if [[ $RUN_GT_ALIGNED -eq 1 ]]; then
+  gt_aligned_dir="$OUTPUT_DIR/gt_aligned"
+  cmd=(
+    python "$SCRIPT_DIR/eval_gt_aligned.py"
+    --real_videos_dir "$REAL_VIDEOS_DIR"
+    --fake_videos_dir "$FAKE_VIDEOS_DIR"
+    --output_dir "$gt_aligned_dir"
+    --device "$FID_DEVICE"
+    --min_detection_confidence "$MIN_DETECTION_CONFIDENCE"
+    --fallback_detection_confidence "$FALLBACK_DETECTION_CONFIDENCE"
+    --all
+  )
+  if [[ -n "$NAME_LIST_PATH" ]]; then
+    cmd+=(--name_list_path "$NAME_LIST_PATH")
+  fi
+  if ! run_metric "GT_ALIGNED" "${cmd[@]}"; then
+    failures+=("GT_ALIGNED")
   fi
 fi
 
