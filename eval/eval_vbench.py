@@ -27,14 +27,33 @@ Usage:
 """
 
 import argparse
+import functools
 import json
 import os
 import sys
 from pathlib import Path
 
+# Workaround: PyTorch 2.10+cu128 CUBLAS batched matmul bug with CUDA 12.9 driver
+os.environ.setdefault("TORCH_BLAS_PREFER_CUBLASLT", "1")
+
 import cv2
 import mediapipe as mp
 import numpy as np
+import torch
+
+# Workaround: VBench 0.1.5 calls torch.load() without weights_only=False,
+# which fails on PyTorch 2.10+ (strict weights_only=True default).
+_orig_torch_load = torch.load
+
+
+@functools.wraps(_orig_torch_load)
+def _patched_torch_load(*args, **kwargs):
+    if "weights_only" not in kwargs:
+        kwargs["weights_only"] = False
+    return _orig_torch_load(*args, **kwargs)
+
+
+torch.load = _patched_torch_load
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -202,7 +221,6 @@ def run_vbench(videos_dir, output_dir, dimensions, device="cuda:0"):
     os.environ.setdefault("LOCAL_RANK", "0")
     os.environ.setdefault("WORLD_SIZE", "1")
 
-    import torch
     from vbench import VBench
     from vbench.distributed import dist_init
 
