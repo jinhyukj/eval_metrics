@@ -4,7 +4,7 @@ set -o pipefail
 
 usage() {
   cat <<'EOF'
-Usage: eval/run_metrics.sh [options] [--fvd] [--fid] [--csim] [--ssim-lmd] [--syncnet] [--gt-aligned] [--all]
+Usage: eval/run_metrics.sh [options] [--fvd] [--fid] [--csim] [--ssim-lmd] [--syncnet] [--gt-aligned] [--vbench] [--all]
 
 Required options:
   --real_videos_dir PATH
@@ -95,6 +95,7 @@ RUN_CSIM=0
 RUN_SSIM_LMD=0
 RUN_SYNCNET=0
 RUN_GT_ALIGNED=0
+RUN_VBENCH=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -124,6 +125,7 @@ while [[ $# -gt 0 ]]; do
     --ssim-lmd|--ssim_lmd) RUN_SSIM_LMD=1; shift ;;
     --syncnet) RUN_SYNCNET=1; shift ;;
     --gt-aligned|--gt_aligned) RUN_GT_ALIGNED=1; shift ;;
+    --vbench) RUN_VBENCH=1; shift ;;
     --all) RUN_FVD=1; RUN_FID=1; RUN_CSIM=1; RUN_SSIM_LMD=1; RUN_SYNCNET=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
@@ -136,7 +138,7 @@ if [[ -z "$REAL_VIDEOS_DIR" || -z "$FAKE_VIDEOS_DIR" || -z "$OUTPUT_DIR" ]]; the
   exit 1
 fi
 
-if [[ $RUN_FVD -eq 0 && $RUN_FID -eq 0 && $RUN_CSIM -eq 0 && $RUN_SSIM_LMD -eq 0 && $RUN_SYNCNET -eq 0 && $RUN_GT_ALIGNED -eq 0 ]]; then
+if [[ $RUN_FVD -eq 0 && $RUN_FID -eq 0 && $RUN_CSIM -eq 0 && $RUN_SSIM_LMD -eq 0 && $RUN_SYNCNET -eq 0 && $RUN_GT_ALIGNED -eq 0 && $RUN_VBENCH -eq 0 ]]; then
   echo "No metrics selected. Use --fvd/--fid/--csim/--ssim-lmd/--syncnet or --all."
   usage
   exit 1
@@ -318,6 +320,29 @@ if [[ $RUN_GT_ALIGNED -eq 1 ]]; then
   fi
   if ! run_metric "GT_ALIGNED" "${cmd[@]}"; then
     failures+=("GT_ALIGNED")
+  fi
+fi
+
+if [[ $RUN_VBENCH -eq 1 ]]; then
+  vbench_dir="$OUTPUT_DIR/vbench"
+  cmd=(
+    python "$SCRIPT_DIR/eval_vbench.py"
+    --fake_videos_dir "$FAKE_VIDEOS_DIR"
+    --output_dir "$vbench_dir"
+    --device "$FID_DEVICE"
+  )
+  if [[ -n "$REAL_VIDEOS_DIR" ]]; then
+    cmd+=(--real_videos_dir "$REAL_VIDEOS_DIR")
+  fi
+  if [[ -n "$NAME_LIST_PATH" ]]; then
+    cmd+=(--name_list_path "$NAME_LIST_PATH")
+  fi
+  cmd+=(
+    --min_detection_confidence "$MIN_DETECTION_CONFIDENCE"
+    --fallback_detection_confidence "$FALLBACK_DETECTION_CONFIDENCE"
+  )
+  if ! run_metric "VBENCH" "${cmd[@]}"; then
+    failures+=("VBENCH")
   fi
 fi
 
